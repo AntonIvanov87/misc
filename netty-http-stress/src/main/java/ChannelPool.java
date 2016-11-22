@@ -6,7 +6,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.SocketAddress;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 
@@ -27,7 +26,7 @@ class ChannelPool {
     this.socketAddress = socketAddress;
   }
 
-  CompletableFuture<Channel> getChannel() {
+  ChannelFuture getChannel() {
     if (acquiredChannelsSemaphore.availablePermits() > maxNumOfAcquiredChannels) {
       throw new IllegalStateException("released more channels than acquired");
     }
@@ -36,14 +35,18 @@ class ChannelPool {
     while (true) {
       Channel channel = idleChannels.poll();
       if (channel == null) {
-        CompletableFuture<Channel> channelFuture = new CompletableFuture<>();
-        bootstrap.connect(socketAddress).addListener(new ConnectListener(channelFuture));
-        return channelFuture;
+        return bootstrap.connect(socketAddress).addListener((ChannelFuture channelFuture) -> {
+          if (channelFuture.cause() != null) {
+            acquiredChannelsSemaphore.release();
+            return;
+          }
+          channelFuture.channel().closeFuture().addListener(releaseOnCloseListener);
+        });
       }
 
       if (channel.isActive()) {
         channel.closeFuture().addListener(releaseOnCloseListener);
-        return CompletableFuture.completedFuture(channel);
+        return channel.newSucceededFuture();
       }
 
       if (channel.isOpen()) {
@@ -59,27 +62,6 @@ class ChannelPool {
       acquiredChannelsSemaphore.release();
     } else if (channel.isOpen()) {
       channel.close();
-    }
-  }
-
-  class ConnectListener implements GenericFutureListener<ChannelFuture> {
-
-    private final CompletableFuture<Channel> channelFuture;
-
-    ConnectListener(CompletableFuture<Channel> channelFuture) {
-      this.channelFuture = channelFuture;
-    }
-
-    @Override
-    public void operationComplete(ChannelFuture channelFuture) throws Exception {
-      if (channelFuture.cause() != null) {
-        acquiredChannelsSemaphore.release();
-        this.channelFuture.completeExceptionally(channelFuture.cause());
-        return;
-      }
-      Channel channel = channelFuture.channel();
-      channel.closeFuture().addListener(releaseOnCloseListener);
-      this.channelFuture.complete(channel);
     }
   }
 }
