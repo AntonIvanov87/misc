@@ -5,15 +5,21 @@ import java.util.concurrent.TimeUnit;
 
 public class NettyHttpStress {
 
-  private static final SocketAddress serverAddress = InetSocketAddress.createUnresolved("127.0.0.1", 8081);
-  private static final int maxConcurrentRequests = 10;
-  private static final int connectTimeoutMs = 10;
-  private static final int readTimeoutMs = 1_000;
-  private static final int sleepBetweenRequestsMs = 1;
-  private static final int secsBetweenPrint = 2;
-
-
   public static void main(String[] args) throws InterruptedException {
+
+    // http://127.0.0.1:8081/
+    SocketAddress serverAddress = InetSocketAddress.createUnresolved("127.0.0.1", 8081);
+    String pathAndQuery = "/";
+    // -c
+    int maxConcurrentRequests = 10;
+    // --connect-timeout
+    int connectTimeoutMs = 10;
+    // -s
+    int readTimeoutMs = 1_000;
+    //
+    int sleepBetweenRequestsMs = 1;
+    int secsBetweenPrint = 2;
+    // -H
 
     StressHttpClient stressHttpClient = new StressHttpClient(serverAddress, maxConcurrentRequests, connectTimeoutMs, readTimeoutMs);
 
@@ -23,7 +29,7 @@ public class NettyHttpStress {
         secsBetweenPrint, secsBetweenPrint, TimeUnit.SECONDS);
 
     while (true) {
-      stressHttpClient.getStatus("/").whenComplete((status, ex) -> {
+      stressHttpClient.getStatus(pathAndQuery).whenComplete((status, ex) -> {
         if (ex != null) {
           Throwable rootEx = ex;
           while (rootEx.getCause() != null) {
