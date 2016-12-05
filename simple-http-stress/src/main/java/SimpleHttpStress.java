@@ -1,27 +1,28 @@
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class NettyHttpStress {
+public class SimpleHttpStress {
 
   public static void main(String[] args) throws InterruptedException {
 
     // http://127.0.0.1:8081/
-    SocketAddress serverAddress = InetSocketAddress.createUnresolved("127.0.0.1", 8081);
+    InetSocketAddress serverAddress = new InetSocketAddress(8081);
     String pathAndQuery = "/";
     // -c
     int maxConcurrentRequests = 1;
     // --connect-timeout
-    int connectTimeoutMs = 10;
+    int connectTimeoutMs = 100;
     // -s
     int readTimeoutMs = 1_000;
     //
     int sleepBetweenRequestsMs = 0;
+
     int secsBetweenPrint = 2;
     // -H
 
-    StressHttpClient stressHttpClient = new StressHttpClient(serverAddress, maxConcurrentRequests, connectTimeoutMs, readTimeoutMs);
+    SocketPool socketPool = new SocketPool(serverAddress, connectTimeoutMs, readTimeoutMs);
+    SimpleHttpClient stressHttpClient = new SimpleHttpClient(socketPool, maxConcurrentRequests);
 
     StatsAccumulator statsAccumulator = new StatsAccumulator();
     Executors.newScheduledThreadPool(1).scheduleAtFixedRate(
@@ -41,7 +42,9 @@ public class NettyHttpStress {
         statsAccumulator.addResult(status.toString());
       });
 
-      //Thread.sleep(sleepBetweenRequestsMs);
+      if (sleepBetweenRequestsMs > 0) {
+        Thread.sleep(sleepBetweenRequestsMs);
+      }
     }
 
   }

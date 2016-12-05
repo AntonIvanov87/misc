@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
-// TODO: reuse with SimpleHttpStress
+// TODO: reuse with NettyHttpStress
 class StatsAccumulator {
 
   private final Map<String, LongAdder> resultToCount = new ConcurrentHashMap<>();
